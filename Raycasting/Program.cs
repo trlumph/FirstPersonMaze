@@ -15,7 +15,7 @@ namespace Raycasting
         private const int mapHeight = 32;
 
         private const double fov = Math.PI / 4;
-        private const double depth = 16;
+        private const double depth = 32;
 
         private static double playerX = 5.0;
         private static double playerY = 5.0;
@@ -57,27 +57,35 @@ namespace Raycasting
                             playerA -= rotationMultiplier * elapsedTime;
                             break;
                         case ConsoleKey.W:
-
+                        {
                             playerX += Math.Sin(playerA) * movementMultiplier * elapsedTime;
                             playerY += Math.Cos(playerA) * movementMultiplier * elapsedTime;
 
-                            if (Map[(int)playerY * mapWidth + (int)playerX] == '#')
+                            char s = Map[(int)playerY * mapWidth + (int)playerX];
+                            if (s == '#' || s == 'B')
                             {
-                                    playerX -= Math.Sin(playerA) * movementMultiplier * elapsedTime;
-                                    playerY -= Math.Cos(playerA) * movementMultiplier * elapsedTime;
+                                playerX -= Math.Sin(playerA) * movementMultiplier * elapsedTime;
+                                playerY -= Math.Cos(playerA) * movementMultiplier * elapsedTime;
                             }
+                            else if (s == 'F')
+                                return;
                             break;
-
+                        }
                         case ConsoleKey.S:
+                        {
                             playerX -= Math.Sin(playerA) * movementMultiplier * elapsedTime;
                             playerY -= Math.Cos(playerA) * movementMultiplier * elapsedTime;
 
-                            if (Map[(int)playerY * mapWidth + (int)playerX] == '#')
+                            char s = Map[(int)playerY * mapWidth + (int)playerX];
+                            if (s == '#' || s == 'B')
                             {
-                                    playerX += Math.Sin(playerA) * movementMultiplier * elapsedTime;
-                                    playerY += Math.Cos(playerA) * movementMultiplier * elapsedTime;
+                                playerX += Math.Sin(playerA) * movementMultiplier * elapsedTime;
+                                playerY += Math.Cos(playerA) * movementMultiplier * elapsedTime;
                             }
+                            else if (s == 'F')
+                                return;
                             break;
+                        }
                         case ConsoleKey.Escape:
                             return;
                     }
@@ -134,10 +142,11 @@ namespace Raycasting
             double rayY = Math.Cos(rayAngle);
 
             double distanceToWall = 0;
-            bool hitWall = false;
+            GameObject hitObject = GameObject.None;
             bool isBound = false;
+            double wallSize = 1;
 
-            while (!hitWall && distanceToWall < depth)
+            while (hitObject == GameObject.None && distanceToWall < depth)
             {
                 distanceToWall += 0.1;
 
@@ -146,39 +155,17 @@ namespace Raycasting
 
                 if (testX < 0 || testX >= depth + playerX || testY < 0 || testY >= depth + playerY)
                 {
-                    hitWall = true;
+                    hitObject = GameObject.Wall;
                     distanceToWall = depth;
                 }
                 else
                 {
                     char testCell = Map[testY * mapWidth + testX];
-                    if (testCell == '#')
+                    if (testCell == '#' || testCell == 'B' || testCell == 'F')
                     {
-                        hitWall = true;
-
-                        var boundsVectorList = new List<(double module, double cos)>();
-
-                        for (int tx = 0; tx < 2; tx++)
-                        {
-                            for (int ty = 0; ty < 2; ty++)
-                            {
-                                double vx = testX + tx - playerX;
-                                double vy = testY + ty - playerY;
-
-                                double vectorModule = Math.Sqrt(vx * vx + vy * vy);
-                                double cosAngle = rayX * vx / vectorModule + rayY * vy / vectorModule;
-
-                                boundsVectorList.Add((vectorModule, cosAngle));
-                            }
-                        }
-
-                        boundsVectorList = boundsVectorList.OrderBy(v => v.module).ToList();
-
-                        double boundAngle = 0.03 / distanceToWall;
-
-                        if (Math.Acos(boundsVectorList[0].cos) < boundAngle ||
-                            Math.Acos(boundsVectorList[1].cos) < boundAngle)
-                            isBound = true;
+                        wallSize = GetWallSize(testCell);
+                        hitObject = GetHitObject(testCell);
+                        isBound = IsBound(rayX, rayY, distanceToWall, testX, testY);
                     }
                     else
                     {
@@ -190,10 +177,14 @@ namespace Raycasting
             int ceiling = (int)(screenHeight / 2d - screenHeight * fov / distanceToWall);
             int floor = screenHeight - ceiling;
 
+            ceiling += (int)(screenHeight - screenHeight * wallSize);
+
             char wallShade;
 
             if (isBound)
                 wallShade = '|';
+            else if (hitObject == GameObject.Finish)
+                wallShade = 'F';
             else if (distanceToWall < depth / 4d)
                 wallShade = '\u2588';
             else if (distanceToWall < depth / 3d)
@@ -237,6 +228,60 @@ namespace Raycasting
             return result;
         }
 
+        private static GameObject GetHitObject(char testCell)
+        {
+            GameObject gameObject = GameObject.None;
+            switch (testCell)
+            {
+                case '#':
+                    gameObject = GameObject.Wall;
+                    break;
+                case 'B':
+                    gameObject = GameObject.BigWall;
+                    break;
+                case 'F':
+                    gameObject = GameObject.Finish;
+                    break;
+            }
+            return gameObject;
+        }
+
+        private static double GetWallSize(char testCell)
+        {
+            if (testCell == '#') return 1.0;
+            if (testCell == 'B') return 1.2;
+            if (testCell == 'F') return 1.0;
+            throw new NotImplementedException();
+        }
+
+        private static bool IsBound(double rayX, double rayY, double distanceToWall, int testX, int testY)
+        {
+            var boundsVectorList = new List<(double module, double cos)>();
+
+            for (int tx = 0; tx < 2; tx++)
+            {
+                for (int ty = 0; ty < 2; ty++)
+                {
+                    double vx = (double)testX + tx - playerX;
+                    double vy = (double)testY + ty - playerY;
+
+                    double vectorModule = Math.Sqrt(vx * vx + vy * vy);
+                    double cosAngle = rayX * vx / vectorModule + rayY * vy / vectorModule;
+
+                    boundsVectorList.Add((vectorModule, cosAngle));
+                }
+            }
+
+            boundsVectorList = boundsVectorList.OrderBy(v => v.module).ToList();
+
+            double boundAngle = 0.03d / distanceToWall;
+
+            if (Math.Acos(boundsVectorList[0].cos) < boundAngle ||
+                Math.Acos(boundsVectorList[1].cos) < boundAngle)
+                return true;
+            return false;
+        }
+
         private static void InitMap()
         {
             Map.Clear();
@@ -245,24 +290,24 @@ namespace Raycasting
             Map.Append("#..............................#");
             Map.Append("#..............................#");
             Map.Append("#..............................#");
-            Map.Append("#......##......................#");
-            Map.Append("#......##.............#####....#");
-            Map.Append("#......##......................#");
-            Map.Append("#......##......................#");
-            Map.Append("#########......................#");
+            Map.Append("#.......................##.....#");
+            Map.Append("#.....................#####....#");
+            Map.Append("##.....................##......#");
+            Map.Append("###.............BBB#...........#");
+            Map.Append("#########........##............#");
+            Map.Append("#....##........................#");
             Map.Append("#..............................#");
             Map.Append("#..............................#");
-            Map.Append("#..............................#");
-            Map.Append("#..............................#");
-            Map.Append("#...................#..........#");
-            Map.Append("#...................#..........#");
-            Map.Append("#...................#..........#");
+            Map.Append("#.....#########................#");
+            Map.Append("#.....#####....................#");
+            Map.Append("#.....###......................#");
+            Map.Append("#.....#........................#");
             Map.Append("#...................#..........#");
             Map.Append("#...................#..........#");
             Map.Append("#...................#..........#");
             Map.Append("#......##############..........#");
             Map.Append("#...................#..........#");
-            Map.Append("#...................#..........#");
+            Map.Append("#...................#......F...#");
             Map.Append("#...................#..........#");
             Map.Append("#...................#..........#");
             Map.Append("#..............................#");
