@@ -1,20 +1,25 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using BacktrackingMaze;
 
-namespace Raycasting
+namespace RaycastingFPM
 {
     class Program
     {
+        private const int cellWidth = 10;
+        private const int mazeSize = 4;
+        private static int mapWidth;
+        private static int mapHeight;
+
         private const int screenWidth = 150;
-        private const int screenHeight = 90;
+        private const int screenHeight = 100;
 
-        private const int mapWidth = 32;
-        private const int mapHeight = 32;
 
-        private const double fov = Math.PI / 4;
+        private const double fov = Math.PI / 3;
         private const double depth = 32;
 
         private static double playerX = 5.0;
@@ -22,14 +27,28 @@ namespace Raycasting
         private static double playerA = 0;
 
         private static readonly StringBuilder Map = new StringBuilder();
+        private static char[,] map;
 
         private static readonly char[] Screen = new char[screenWidth * screenHeight];
 
         static async Task Main(string[] args)
         {
-            Console.SetWindowSize(screenWidth, screenHeight + 1);
-            Console.SetBufferSize(screenWidth, screenHeight + 1);
+            try
+            {
+                Console.SetWindowSize(screenWidth, screenHeight + 1);
+                Console.SetBufferSize(screenWidth, screenHeight + 1);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Change your console font to 8x9 size (Dot font) and try again.");
+                Console.WriteLine("Поменяйте шрифт консоли на точечный (размер 8х9) и попробуйте снова.");
+                return;
+            }
 
+            MazeBuilder maze = new MazeBuilder(mazeSize, cellWidth);
+            map = maze.GetMap();
+            mapHeight = map.GetLength(1);
+            mapWidth = map.GetLength(0);
             InitMap();
 
             var dateTimeFrom = DateTime.Now;
@@ -45,8 +64,8 @@ namespace Raycasting
                     InitMap();
 
                     var consoleKey = Console.ReadKey(true).Key;
-                    double movementMultiplier = 10.0;
-                    double rotationMultiplier = 2.0;
+                    double movementMultiplier = 4.9;
+                    double rotationMultiplier = 1.6;
 
                     switch (consoleKey)
                     {
@@ -57,35 +76,35 @@ namespace Raycasting
                             playerA -= rotationMultiplier * elapsedTime;
                             break;
                         case ConsoleKey.W:
-                        {
-                            playerX += Math.Sin(playerA) * movementMultiplier * elapsedTime;
-                            playerY += Math.Cos(playerA) * movementMultiplier * elapsedTime;
-
-                            char s = Map[(int)playerY * mapWidth + (int)playerX];
-                            if (s == '#' || s == 'B')
-                            {
-                                playerX -= Math.Sin(playerA) * movementMultiplier * elapsedTime;
-                                playerY -= Math.Cos(playerA) * movementMultiplier * elapsedTime;
-                            }
-                            else if (s == 'F')
-                                return;
-                            break;
-                        }
-                        case ConsoleKey.S:
-                        {
-                            playerX -= Math.Sin(playerA) * movementMultiplier * elapsedTime;
-                            playerY -= Math.Cos(playerA) * movementMultiplier * elapsedTime;
-
-                            char s = Map[(int)playerY * mapWidth + (int)playerX];
-                            if (s == '#' || s == 'B')
                             {
                                 playerX += Math.Sin(playerA) * movementMultiplier * elapsedTime;
                                 playerY += Math.Cos(playerA) * movementMultiplier * elapsedTime;
+
+                                char s = Map[(int)playerY * mapWidth + (int)playerX];
+                                if (s == '#' || s == 'B')
+                                {
+                                    playerX -= Math.Sin(playerA) * movementMultiplier * elapsedTime;
+                                    playerY -= Math.Cos(playerA) * movementMultiplier * elapsedTime;
+                                }
+                                else if (s == 'F')
+                                    return;
+                                break;
                             }
-                            else if (s == 'F')
-                                return;
-                            break;
-                        }
+                        case ConsoleKey.S:
+                            {
+                                playerX -= Math.Sin(playerA) * movementMultiplier * elapsedTime;
+                                playerY -= Math.Cos(playerA) * movementMultiplier * elapsedTime;
+
+                                char s = Map[(int)playerY * mapWidth + (int)playerX];
+                                if (s == '#' || s == 'B')
+                                {
+                                    playerX += Math.Sin(playerA) * movementMultiplier * elapsedTime;
+                                    playerY += Math.Cos(playerA) * movementMultiplier * elapsedTime;
+                                }
+                                else if (s == 'F')
+                                    return;
+                                break;
+                            }
                         case ConsoleKey.Escape:
                             return;
                     }
@@ -101,14 +120,7 @@ namespace Raycasting
                 }
 
                 var rays = await Task.WhenAll(rayCastingTasks);
-
-                foreach (var dictionary in rays)
-                {
-                    foreach(int key in dictionary.Keys)
-                    {
-                        Screen[key] = dictionary[key];
-                    }
-                }
+                Display(in rays);
 
                 //stats
                 char[] stats = $"X: {playerX}, Y: {playerY}, A: {playerA}, FPS: {(int)(1 / elapsedTime)}".ToCharArray();
@@ -129,6 +141,17 @@ namespace Raycasting
                 Console.CursorVisible = false;
                 Console.SetCursorPosition(0, 0);
                 Console.Write(Screen);
+            }
+        }
+
+        private static void Display(in Dictionary<int, char>[] rays)
+        {
+            foreach (var dictionary in rays)
+            {
+                foreach (int key in dictionary.Keys)
+                {
+                    Screen[key] = dictionary[key];
+                }
             }
         }
 
@@ -285,38 +308,15 @@ namespace Raycasting
         private static void InitMap()
         {
             Map.Clear();
-            Map.Append("################################");
-            Map.Append("#..............................#");
-            Map.Append("#..............................#");
-            Map.Append("#..............................#");
-            Map.Append("#..............................#");
-            Map.Append("#.......................##.....#");
-            Map.Append("#.....................#####....#");
-            Map.Append("##.....................##......#");
-            Map.Append("###.............BBB#...........#");
-            Map.Append("#########........##............#");
-            Map.Append("#....##........................#");
-            Map.Append("#..............................#");
-            Map.Append("#..............................#");
-            Map.Append("#.....#########................#");
-            Map.Append("#.....#####....................#");
-            Map.Append("#.....###......................#");
-            Map.Append("#.....#........................#");
-            Map.Append("#...................#..........#");
-            Map.Append("#...................#..........#");
-            Map.Append("#...................#..........#");
-            Map.Append("#......##############..........#");
-            Map.Append("#...................#..........#");
-            Map.Append("#...................#......F...#");
-            Map.Append("#...................#..........#");
-            Map.Append("#...................#..........#");
-            Map.Append("#..............................#");
-            Map.Append("#..............................#");
-            Map.Append("#..............................#");
-            Map.Append("#..............................#");
-            Map.Append("#..............................#");
-            Map.Append("#..............................#");
-            Map.Append("################################");
+            
+            for (int j = 0; j < map.GetLength(0); j++)
+            {
+                string row = "";
+                for (int i = 0; i < map.GetLength(1); i++)
+                    row += map[j, i];
+                Map.Append(row);
+            }
+           
         }
     }
 }

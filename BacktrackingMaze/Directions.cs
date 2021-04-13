@@ -4,13 +4,14 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace RaycastingFPM
+namespace BacktrackingMaze
 {
-    enum GameObject
+    [Flags]
+    enum Directions
     {
-        None,
-        Wall,
-        BigWall,
-        Finish
+        N = 1,
+        S = 2,
+        E = 4,
+        W = 8
     }
 }
