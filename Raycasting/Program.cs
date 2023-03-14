@@ -42,6 +42,7 @@ namespace RaycastingFPM
             {
                 Console.WriteLine("Change your console font to 8x9 size (Dot font) and try again.");
                 Console.WriteLine("Поменяйте шрифт консоли на точечный (размер 8х9) и попробуйте снова.");
+                Console.ReadKey();
                 return;
             }
 
@@ -62,9 +63,9 @@ namespace RaycastingFPM
                 if (Console.KeyAvailable)
                 {
                     InitMap();
-
+                    
                     var consoleKey = Console.ReadKey(true).Key;
-                    double movementMultiplier = 4.9;
+                    double movementMultiplier = 7;
                     double rotationMultiplier = 1.6;
 
                     switch (consoleKey)

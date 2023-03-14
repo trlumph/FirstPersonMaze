@@ -55,5 +55,11 @@
   <ItemGroup>
     <None Include="App.config" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\BacktrackingMaze\BacktrackingMaze.csproj">
+      <Project>{46901e32-0b28-41f2-97cc-f3979f5c07de}</Project>
+      <Name>BacktrackingMaze</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
